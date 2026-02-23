@@ -9,11 +9,13 @@ from .types import (
     FeedDocumentData,
     FeedIntervalData,
     FeedTimerData,
+    FirebaseSolidsInterval,
     GrowthData,
     HealthDocumentData,
     SleepDocumentData,
     SleepIntervalData,
     SleepTimerData,
+    SolidsFeedIntervalData,
 )
 
 __all__ = [
@@ -24,9 +26,11 @@ __all__ = [
     "FeedDocumentData",
     "FeedIntervalData",
     "FeedTimerData",
+    "FirebaseSolidsInterval",
     "GrowthData",
     "HealthDocumentData",
     "SleepDocumentData",
     "SleepIntervalData",
     "SleepTimerData",
+    "SolidsFeedIntervalData",
 ]
