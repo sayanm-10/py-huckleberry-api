@@ -962,7 +962,7 @@ class HuckleberryAPI:
             child_uid: Child unique identifier
             foods: List of food names (e.g., ["broccoli", "rice"])
             notes: Optional notes about the meal
-            reaction: Optional reaction - "LOVED", "LIKED", "MEH", or "DISLIKED"
+            reaction: Optional reaction - "LOVED", "MEH", "HATED", or "ALLERGIC"
         """
         _LOGGER.info("Logging solids for child %s: %s", child_uid, foods)
 
