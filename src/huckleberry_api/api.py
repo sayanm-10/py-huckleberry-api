@@ -135,14 +135,14 @@ class HuckleberryAPI:
 
         try:
             async with self.websession.post(
-                    f"{AUTH_URL}?key={FIREBASE_API_KEY}",
-                    json={
-                        "email": self.email,
-                        "password": self.password,
-                        "returnSecureToken": True,
-                    },
-                    timeout=10,
-                ) as response:
+                f"{AUTH_URL}?key={FIREBASE_API_KEY}",
+                json={
+                    "email": self.email,
+                    "password": self.password,
+                    "returnSecureToken": True,
+                },
+                timeout=10,
+            ) as response:
                 response.raise_for_status()
                 data = await response.json()
             self.id_token = data["idToken"]
@@ -176,13 +176,13 @@ class HuckleberryAPI:
 
         try:
             async with self.websession.post(
-                    f"{REFRESH_URL}?key={FIREBASE_API_KEY}",
-                    json={
-                        "grant_type": "refresh_token",
-                        "refresh_token": self.refresh_token,
-                    },
-                    timeout=10,
-                ) as response:
+                f"{REFRESH_URL}?key={FIREBASE_API_KEY}",
+                json={
+                    "grant_type": "refresh_token",
+                    "refresh_token": self.refresh_token,
+                },
+                timeout=10,
+            ) as response:
                 response.raise_for_status()
                 data = await response.json()
         except aiohttp.ClientError as err:
@@ -1027,10 +1027,10 @@ class HuckleberryAPI:
         url = f"https://firebasestorage.googleapis.com/v0/b/{CURATED_FOODS_BUCKET}/o/{encoded_object}?alt=media"
 
         async with self.websession.get(
-                url,
-                headers={"Authorization": f"Bearer {self.id_token}"},
-                timeout=30,
-            ) as response:
+            url,
+            headers={"Authorization": f"Bearer {self.id_token}"},
+            timeout=30,
+        ) as response:
             response.raise_for_status()
             payload = await response.json()
         if not isinstance(payload, dict):
