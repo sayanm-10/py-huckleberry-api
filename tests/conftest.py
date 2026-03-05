@@ -13,14 +13,14 @@ import pytest_asyncio
 from huckleberry_api import HuckleberryAPI
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="module")
+@pytest_asyncio.fixture
 async def websession() -> AsyncIterator[aiohttp.ClientSession]:
     """Shared aiohttp websession for API client tests."""
     async with aiohttp.ClientSession() as session:
         yield session
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="module")
+@pytest_asyncio.fixture
 async def api(websession: aiohttp.ClientSession) -> AsyncIterator[HuckleberryAPI]:
     """Create API instance with credentials from environment."""
     email = os.getenv("HUCKLEBERRY_EMAIL")
@@ -39,7 +39,7 @@ async def api(websession: aiohttp.ClientSession) -> AsyncIterator[HuckleberryAPI
     await api_instance.stop_all_listeners()
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="module")
+@pytest_asyncio.fixture
 async def child_uid(api: HuckleberryAPI) -> str:
     """Get child UID for testing."""
     children = await api.get_children()
