@@ -9,7 +9,6 @@ from .firebase_types import (
     FirebaseDiaperData,
     FirebaseFeedIntervalData,
     FirebaseSleepIntervalData,
-    FirebaseSolidsFeedIntervalData,
     HealthDataEntry,
     Number,
     SolidsFoodSource,
@@ -31,6 +30,5 @@ class CalendarEvents(StrictModel):
 
     sleep: list[FirebaseSleepIntervalData]
     feed: list[FirebaseFeedIntervalData]
-    solids: list[FirebaseSolidsFeedIntervalData]
     diaper: list[FirebaseDiaperData]
     health: list[HealthDataEntry]

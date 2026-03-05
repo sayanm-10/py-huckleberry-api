@@ -6,6 +6,7 @@ import time
 from google.cloud import firestore
 
 from huckleberry_api import HuckleberryAPI
+from huckleberry_api.firebase_types import FirebaseSolidsFeedIntervalData
 from huckleberry_api.models import SolidsFoodReference
 
 
@@ -121,8 +122,8 @@ class TestSolidsFeeding:
         assert "curated" in sources
         assert "custom" in sources
 
-    async def test_get_solids_intervals(self, api: HuckleberryAPI, child_uid: str) -> None:
-        """Test retrieving solids intervals."""
+    async def test_solids_entries_are_in_feed_intervals(self, api: HuckleberryAPI, child_uid: str) -> None:
+        """Test retrieving solids entries via feed intervals."""
         curated = await api.get_solids_curated_list()
         await api.log_solids(
             child_uid,
@@ -133,13 +134,13 @@ class TestSolidsFeeding:
         end_ts = int(time.time()) + 60
         start_ts = end_ts - 300
 
-        entries = await api.get_solids_intervals(child_uid, start_ts, end_ts)
-        assert len(entries) > 0
-        assert entries[-1].mode == "solids"
-        assert entries[-1].foods is not None
+        entries = await api.get_feed_intervals(child_uid, start_ts, end_ts)
+        solids_entries = [entry for entry in entries if isinstance(entry, FirebaseSolidsFeedIntervalData)]
+        assert len(solids_entries) > 0
+        assert solids_entries[-1].foods is not None
 
-    async def test_solids_in_calendar_events(self, api: HuckleberryAPI, child_uid: str) -> None:
-        """Test that solids entries appear in calendar events."""
+    async def test_solids_in_calendar_feed_events(self, api: HuckleberryAPI, child_uid: str) -> None:
+        """Test that solids entries appear in calendar feed events."""
         curated = await api.get_solids_curated_list()
         await api.log_solids(
             child_uid,
@@ -151,4 +152,4 @@ class TestSolidsFeeding:
         start_ts = end_ts - 300
 
         cal = await api.get_calendar_events(child_uid, start_ts, end_ts)
-        assert len(cal.solids) > 0
+        assert any(entry.mode == "solids" for entry in cal.feed)

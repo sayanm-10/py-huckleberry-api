@@ -54,7 +54,6 @@ from .firebase_types import (
     FirebaseSleepMultiContainer,
     FirebaseSleepTimerData,
     FirebaseSolidsFeedIntervalData,
-    FirebaseSolidsMultiContainer,
     FirebaseTimestamp,
     FirebaseUserDocument,
     HealthDataEntry,
@@ -1518,7 +1517,6 @@ class HuckleberryAPI:
         return CalendarEvents(
             sleep=await self.get_sleep_intervals(child_uid, start_timestamp, end_timestamp),
             feed=await self.get_feed_intervals(child_uid, start_timestamp, end_timestamp),
-            solids=await self.get_solids_intervals(child_uid, start_timestamp, end_timestamp),
             diaper=await self.get_diaper_intervals(child_uid, start_timestamp, end_timestamp),
             health=await self.get_health_entries(child_uid, start_timestamp, end_timestamp),
         )
@@ -1654,80 +1652,6 @@ class HuckleberryAPI:
 
         except (GoogleAPICallError, ValidationError) as err:
             _LOGGER.error("Error fetching feed intervals: %s", err)
-
-        return events
-
-    async def get_solids_intervals(
-        self,
-        child_uid: str,
-        start_timestamp: int,
-        end_timestamp: int,
-    ) -> list[FirebaseSolidsFeedIntervalData]:
-        """Fetch solids feeding intervals from Firestore for a date range.
-
-        Args:
-            child_uid: Child unique identifier
-            start_timestamp: Start of range (Unix timestamp in seconds)
-            end_timestamp: End of range (Unix timestamp in seconds)
-
-        Returns:
-            List of solids interval dicts with 'start', 'foods', and optional fields
-        """
-        events: list[FirebaseSolidsFeedIntervalData] = []
-        client = await self._get_firestore_client()
-        feed_ref = client.collection("feed").document(child_uid)
-        intervals_ref = feed_ref.collection("intervals")
-
-        def _build_solids_event(
-            source: dict[str, object] | FirebaseSolidsFeedIntervalData,
-        ) -> FirebaseSolidsFeedIntervalData | None:
-            """Build solids event from Firebase payload with explicit field mapping."""
-            try:
-                return FirebaseSolidsFeedIntervalData.model_validate(source)
-            except ValidationError:
-                return None
-
-        try:
-            # Query 1: Regular docs with date filtering
-            regular_docs = (
-                intervals_ref.where(filter=firestore.FieldFilter("start", ">=", start_timestamp))
-                .where(filter=firestore.FieldFilter("start", "<", end_timestamp))
-                .order_by("start")
-                .stream()
-            )
-
-            async for doc in regular_docs:
-                data = doc.to_dict()
-                if not data or data.get("multi"):
-                    continue
-                event = _build_solids_event(data)
-                if event is None:
-                    continue
-                event_start = float(event.start)
-                if not (start_timestamp <= event_start < end_timestamp):
-                    continue
-                events.append(event)
-
-            # Query 2: Multi-entry documents
-            multi_docs = intervals_ref.where(filter=firestore.FieldFilter("multi", "==", True)).stream()
-
-            async for doc in multi_docs:
-                data = doc.to_dict()
-                if not data:
-                    continue
-
-                container = FirebaseSolidsMultiContainer.model_validate(data)
-                for entry in container.data.values():
-                    event = _build_solids_event(entry)
-                    if event is None:
-                        continue
-                    event_start = float(event.start)
-                    if not (start_timestamp <= event_start < end_timestamp):
-                        continue
-                    events.append(event)
-
-        except (GoogleAPICallError, ValidationError) as err:
-            _LOGGER.error("Error fetching solids intervals: %s", err)
 
         return events
 
