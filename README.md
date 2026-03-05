@@ -149,7 +149,6 @@ The package includes Pydantic models for type safety.
 
 Canonical Firebase schema definitions are in `src/huckleberry_api/firebase_types.py`.
 
-- `ChildData` - Child profile information
 - `FirebaseChildDocument` - Child profile information
 - `FirebaseSleepDocumentData` / `FirebaseSleepTimerData` - Sleep tracking data
 - `FirebaseFeedDocumentData` / `FirebaseFeedTimerData` - Feeding tracking data
