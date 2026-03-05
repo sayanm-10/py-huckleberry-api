@@ -200,6 +200,12 @@ uv run ruff format .
 
 # Type check
 uv run ty check --python-version 3.11 --ignore unknown-argument
+
+# Add release notes about your feature
+uv run towncrier create
+
+# Build release notes from fragments when cutting a release
+uv run towncrier build --yes --version <version>
 ```
 
 See [tests/README.md](tests/README.md) for detailed testing documentation.
