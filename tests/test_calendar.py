@@ -16,7 +16,7 @@ from huckleberry_api.firebase_types import (
 class TestCalendarIntervals:
     """Test calendar interval fetching functionality."""
 
-    async def test_get_sleep_intervals(self, api: HuckleberryAPI, child_uid: str) -> None:
+    async def test_list_sleep_intervals(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test fetching sleep intervals for a date range."""
         # Create a sleep interval first
         await api.start_sleep(child_uid)
@@ -29,7 +29,7 @@ class TestCalendarIntervals:
         start_ts = int(now.timestamp()) - 3600  # 1 hour ago
         end_ts = int(now.timestamp()) + 60  # 1 minute in future
 
-        intervals = await api.get_sleep_intervals(child_uid, start_ts, end_ts)
+        intervals = await api.list_sleep_intervals(child_uid, start_ts, end_ts)
 
         assert isinstance(intervals, list)
         # Should have at least the interval we just created
@@ -40,7 +40,7 @@ class TestCalendarIntervals:
             assert isinstance(interval.start, (int, float))
             assert isinstance(interval.duration, (int, float))
 
-    async def test_get_feed_intervals(self, api: HuckleberryAPI, child_uid: str) -> None:
+    async def test_list_feed_intervals(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test fetching feed intervals for a date range."""
         # Create a feed interval first
         await api.start_nursing(child_uid, side="left")
@@ -53,7 +53,7 @@ class TestCalendarIntervals:
         start_ts = int(now.timestamp()) - 3600
         end_ts = int(now.timestamp()) + 60
 
-        intervals = await api.get_feed_intervals(child_uid, start_ts, end_ts)
+        intervals = await api.list_feed_intervals(child_uid, start_ts, end_ts)
 
         assert isinstance(intervals, list)
         assert len(intervals) >= 1
@@ -69,7 +69,7 @@ class TestCalendarIntervals:
             elif isinstance(interval, FirebaseSolidsFeedIntervalData):
                 assert interval.foods is None or isinstance(interval.foods, dict)
 
-    async def test_get_diaper_intervals(self, api: HuckleberryAPI, child_uid: str) -> None:
+    async def test_list_diaper_intervals(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test fetching diaper intervals for a date range."""
         # Create a diaper entry first
         await api.log_diaper(child_uid, mode="pee")
@@ -80,7 +80,7 @@ class TestCalendarIntervals:
         start_ts = int(now.timestamp()) - 3600
         end_ts = int(now.timestamp()) + 60
 
-        intervals = await api.get_diaper_intervals(child_uid, start_ts, end_ts)
+        intervals = await api.list_diaper_intervals(child_uid, start_ts, end_ts)
 
         assert isinstance(intervals, list)
         assert len(intervals) >= 1
@@ -90,7 +90,7 @@ class TestCalendarIntervals:
             assert isinstance(interval.start, (int, float))
             assert interval.mode in ("pee", "poo", "both", "dry")
 
-    async def test_get_health_entries(self, api: HuckleberryAPI, child_uid: str) -> None:
+    async def test_list_health_entries(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test fetching health/growth entries for a date range."""
         # Create a health entry first
         await api.log_growth(child_uid, weight=5.0, units="metric")
@@ -101,7 +101,7 @@ class TestCalendarIntervals:
         start_ts = int(now.timestamp()) - 3600
         end_ts = int(now.timestamp()) + 60
 
-        entries = await api.get_health_entries(child_uid, start_ts, end_ts)
+        entries = await api.list_health_entries(child_uid, start_ts, end_ts)
 
         assert isinstance(entries, list)
         assert len(entries) >= 1
@@ -121,7 +121,7 @@ class TestCalendarIntervals:
         old_start = 0  # Unix epoch
         old_end = 1000000  # Jan 12, 1970
 
-        intervals = await api.get_sleep_intervals(child_uid, old_start, old_end)
+        intervals = await api.list_sleep_intervals(child_uid, old_start, old_end)
 
         # Should return empty list for range in distant past
         assert isinstance(intervals, list)
@@ -132,7 +132,7 @@ class TestCalendarIntervals:
         now = int(datetime.now(timezone.utc).timestamp())
 
         # Start equals end - empty range
-        intervals = await api.get_sleep_intervals(child_uid, now, now)
+        intervals = await api.list_sleep_intervals(child_uid, now, now)
 
         assert isinstance(intervals, list)
         # Should return empty since start < end_timestamp won't match when they're equal

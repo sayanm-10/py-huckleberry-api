@@ -97,7 +97,7 @@ class FirebaseTokenCredentials(Credentials):
         """Token refresh is handled by HuckleberryAPI.
 
         This method is required by the Credentials interface but is not used.
-        Token refreshing is managed externally by HuckleberryAPI.refresh_auth_token(),
+        Token refreshing is managed externally by HuckleberryAPI.refresh_session_token(),
         and a new FirebaseTokenCredentials instance is created with the refreshed token.
         """
 
@@ -158,16 +158,16 @@ class HuckleberryAPI:
             _LOGGER.error("Authentication request failed: %s", err)
             raise
 
-    async def maintain_session(self) -> None:
-        """Ensure the session is valid and refresh token if needed.
+    async def ensure_session(self) -> None:
+        """Ensure there is a valid authenticated session.
 
-        This should be called periodically (e.g. by coordinator) to ensure
-        listeners don't die due to token expiration.
+        This should be called periodically (for example by a coordinator) to keep
+        long-lived listeners healthy across token expiration windows.
         """
         await self._ensure_authenticated()
 
-    async def refresh_auth_token(self) -> None:
-        """Refresh the authentication token."""
+    async def refresh_session_token(self) -> None:
+        """Refresh the Firebase authentication token."""
         if not self.refresh_token:
             raise ValueError("No refresh token available")
 
@@ -236,7 +236,7 @@ class HuckleberryAPI:
             await self.authenticate()
         elif self.token_expires_at and datetime.now().timestamp() >= self.token_expires_at - 300:
             # Refresh if token expires in less than 5 minutes
-            await self.refresh_auth_token()
+            await self.refresh_session_token()
 
     async def _get_headers(self) -> dict[str, str]:
         """Get headers for API requests."""
@@ -296,7 +296,7 @@ class HuckleberryAPI:
 
         return await self._get_timezone_offset_minutes()
 
-    async def get_children(self, child_uid: str) -> FirebaseChildDocument | None:
+    async def get_child_document(self, child_uid: str) -> FirebaseChildDocument | None:
         """Get a single child document by child UID."""
         _LOGGER.debug("Fetching child document for %s", child_uid)
 
@@ -994,8 +994,8 @@ class HuckleberryAPI:
 
         _LOGGER.info("Bottle feeding logged: %s %s of %s", amount, units, bottle_type)
 
-    async def get_solids_curated_list(self) -> list[FirebaseCuratedFoodDocument]:
-        """Get curated solids food catalog from Firebase Storage."""
+    async def list_solids_curated_foods(self) -> list[FirebaseCuratedFoodDocument]:
+        """List curated solids foods from Firebase Storage."""
         await self._ensure_authenticated()
 
         if not self.id_token:
@@ -1030,10 +1030,10 @@ class HuckleberryAPI:
             ),
         )
 
-    async def get_solids_custom_list(
+    async def list_solids_custom_foods(
         self, child_uid: str, include_archived: bool = False
     ) -> list[FirebaseCustomFoodTypeDocument]:
-        """Get custom solids foods from Firestore types/{child_uid}/custom."""
+        """List custom solids foods from Firestore ``types/{child_uid}/custom``."""
         client = await self._get_firestore_client()
         custom_ref = client.collection("types").document(child_uid).collection("custom")
 
@@ -1435,7 +1435,7 @@ class HuckleberryAPI:
             _LOGGER.error("Failed to log growth data: %s", err)
             raise
 
-    async def get_growth_data(self, child_uid: str) -> FirebaseGrowthData | None:
+    async def get_latest_growth_data(self, child_uid: str) -> FirebaseGrowthData | None:
         """
         Get the latest growth measurements for a child.
 
@@ -1468,7 +1468,7 @@ class HuckleberryAPI:
             _LOGGER.error("Failed to get growth data: %s", err)
             return None
 
-    async def get_sleep_intervals(
+    async def list_sleep_intervals(
         self,
         child_uid: str,
         start_timestamp: int,
@@ -1530,7 +1530,7 @@ class HuckleberryAPI:
 
         return events
 
-    async def get_feed_intervals(
+    async def list_feed_intervals(
         self,
         child_uid: str,
         start_timestamp: int,
@@ -1600,7 +1600,7 @@ class HuckleberryAPI:
 
         return events
 
-    async def get_diaper_intervals(
+    async def list_diaper_intervals(
         self,
         child_uid: str,
         start_timestamp: int,
@@ -1662,7 +1662,7 @@ class HuckleberryAPI:
 
         return events
 
-    async def get_health_entries(
+    async def list_health_entries(
         self,
         child_uid: str,
         start_timestamp: int,

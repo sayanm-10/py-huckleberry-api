@@ -31,9 +31,9 @@ class TestGrowthTracking:
         assert data is not None
         assert "lastGrowthEntry" in data.get("prefs", {})
 
-    async def test_get_growth_data(self, api: HuckleberryAPI, child_uid: str) -> None:
-        """Test retrieving growth data."""
-        growth_data = await api.get_growth_data(child_uid)
+    async def test_get_latest_growth_data(self, api: HuckleberryAPI, child_uid: str) -> None:
+        """Test retrieving latest growth data."""
+        growth_data = await api.get_latest_growth_data(child_uid)
         if growth_data is None:
             return
 

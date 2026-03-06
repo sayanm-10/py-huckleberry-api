@@ -15,7 +15,7 @@ class TestSolidsFeeding:
 
     async def test_get_curated_foods(self, api: HuckleberryAPI) -> None:
         """Test fetching curated solids catalog."""
-        curated = await api.get_solids_curated_list()
+        curated = await api.list_solids_curated_foods()
 
         assert len(curated) > 0
         first = curated[0]
@@ -32,12 +32,12 @@ class TestSolidsFeeding:
         assert created.name == unique_name
         assert created.source == "custom"
 
-        custom_foods = await api.get_solids_custom_list(child_uid)
+        custom_foods = await api.list_solids_custom_foods(child_uid)
         assert any(food.id == created.id for food in custom_foods)
 
     async def test_log_solids_single_curated_food(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test logging solids with an existing curated food ID."""
-        curated = await api.get_solids_curated_list()
+        curated = await api.list_solids_curated_foods()
         assert curated
 
         await api.log_solids(
@@ -80,7 +80,7 @@ class TestSolidsFeeding:
     async def test_log_solids_multiple_foods_with_custom_and_curated(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test logging solids with mixed curated/custom foods, notes, and reaction."""
         custom_food = await api.create_solids_custom_food(child_uid, f"api-custom-{int(time.time())}")
-        curated = await api.get_solids_curated_list()
+        curated = await api.list_solids_curated_foods()
         assert len(curated) >= 2
 
         await api.log_solids(
@@ -124,7 +124,7 @@ class TestSolidsFeeding:
 
     async def test_solids_entries_are_in_feed_intervals(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test retrieving solids entries via feed intervals."""
-        curated = await api.get_solids_curated_list()
+        curated = await api.list_solids_curated_foods()
         await api.log_solids(
             child_uid,
             foods=[SolidsFoodReference(id=curated[0].id, source="curated", name=curated[0].name, amount="small")],
@@ -134,14 +134,14 @@ class TestSolidsFeeding:
         end_ts = int(time.time()) + 60
         start_ts = end_ts - 300
 
-        entries = await api.get_feed_intervals(child_uid, start_ts, end_ts)
+        entries = await api.list_feed_intervals(child_uid, start_ts, end_ts)
         solids_entries = [entry for entry in entries if isinstance(entry, FirebaseSolidsFeedIntervalData)]
         assert len(solids_entries) > 0
         assert solids_entries[-1].foods is not None
 
     async def test_solids_in_feed_interval_events(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test that solids entries appear in feed interval queries."""
-        curated = await api.get_solids_curated_list()
+        curated = await api.list_solids_curated_foods()
         await api.log_solids(
             child_uid,
             foods=[SolidsFoodReference(id=curated[0].id, source="curated", name=curated[0].name, amount="small")],
@@ -151,5 +151,5 @@ class TestSolidsFeeding:
         end_ts = int(time.time()) + 60
         start_ts = end_ts - 300
 
-        feed_entries = await api.get_feed_intervals(child_uid, start_ts, end_ts)
+        feed_entries = await api.list_feed_intervals(child_uid, start_ts, end_ts)
         assert any(entry.mode == "solids" for entry in feed_entries)

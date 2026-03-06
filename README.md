@@ -98,7 +98,7 @@ async def main() -> None:
           return
         child_uid = user_doc.childList[0].cid
 
-        await api.setup_realtime_listener(child_uid, on_sleep_update)
+        await api.setup_sleep_listener(child_uid, on_sleep_update)
         await api.stop_all_listeners()
 ```
 
@@ -106,11 +106,12 @@ async def main() -> None:
 
 ### Authentication
 - `await authenticate()` - Authenticate with Firebase
-- `await refresh_auth_token()` - Refresh expired token
+- `await ensure_session()` - Ensure valid auth/session state
+- `await refresh_session_token()` - Refresh expired token
 
 ### Children
 - `await get_user_document()` - Get full `users/{uid}` document
-- `await get_children(child_uid)` - Get a single child profile by id
+- `await get_child_document(child_uid)` - Get a single child profile by id
 
 ### Sleep Tracking
 - `await start_sleep(child_uid)` - Start sleep session
@@ -131,6 +132,12 @@ async def main() -> None:
   - `amount`: Volume fed (e.g., 120.0)
   - `units`: "ml" or "oz"
 
+### Solids Tracking
+- `await list_solids_curated_foods()` - List curated solids food catalog
+- `await list_solids_custom_foods(child_uid, include_archived=False)` - List custom solids foods
+- `await create_solids_custom_food(child_uid, name, image="")` - Create custom solids food
+- `await log_solids(child_uid, foods, notes="", reaction=None, food_note_image=None)` - Log solids meal
+
 ### Diaper Tracking
 - `await log_diaper(child_uid, mode, pee_amount, poo_amount, color, consistency)` - Log diaper change
   - `mode`: "pee", "poo", "both", or "dry"
@@ -140,10 +147,10 @@ async def main() -> None:
 ### Growth Tracking
 - `await log_growth(child_uid, weight, height, head, units)` - Log measurements
   - `units`: "metric" (kg/cm) or "imperial" (lbs/inches)
-- `await get_growth_data(child_uid)` - Get latest measurements
+- `await get_latest_growth_data(child_uid)` - Get latest measurements
 
 ### Real-time Listeners
-- `await setup_realtime_listener(child_uid, callback)` - Listen to sleep updates
+- `await setup_sleep_listener(child_uid, callback)` - Listen to sleep updates
 - `await setup_feed_listener(child_uid, callback)` - Listen to feeding updates
 - `await setup_health_listener(child_uid, callback)` - Listen to health updates
 - `await stop_all_listeners()` - Stop all active listeners

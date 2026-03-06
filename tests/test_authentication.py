@@ -33,17 +33,17 @@ class TestAuthentication:
         # Wait 1 second to ensure we get a new token (Firebase may return same token if too fresh)
         await asyncio.sleep(1)
         original_token = api.id_token
-        await api.refresh_auth_token()
+        await api.refresh_session_token()
         assert api.id_token is not None
         assert api.id_token != original_token
 
-    async def test_maintain_session(self, api: HuckleberryAPI) -> None:
-        """Test maintain_session ensures token validity."""
+    async def test_ensure_session(self, api: HuckleberryAPI) -> None:
+        """Test ensure_session keeps token validity."""
         original_token = api.id_token
         original_expires = api.token_expires_at
 
-        # Call maintain_session - shouldn't refresh if token is fresh
-        await api.maintain_session()
+        # Call ensure_session - shouldn't refresh if token is fresh
+        await api.ensure_session()
         assert api.id_token == original_token
         assert api.token_expires_at == original_expires
 
@@ -51,8 +51,8 @@ class TestAuthentication:
         old_expiry = time.time() - 100
         api.token_expires_at = old_expiry
 
-        # Now maintain_session should refresh
-        await api.maintain_session()
+        # Now ensure_session should refresh
+        await api.ensure_session()
         assert api.id_token is not None
         assert api.token_expires_at is not None
 
@@ -70,7 +70,7 @@ class TestAuthentication:
 class TestChildrenRetrieval:
     """Test children data retrieval."""
 
-    async def test_get_children(self, api: HuckleberryAPI) -> None:
+    async def test_get_child_document(self, api: HuckleberryAPI) -> None:
         """Test retrieving user childList and child document by id."""
         user_doc = await api.get_user_document()
         assert user_doc is not None
@@ -79,7 +79,7 @@ class TestChildrenRetrieval:
         assert len(child_uids) > 0
         assert len(child_uids) == len(set(child_uids))
 
-        child = await api.get_children(child_uids[0])
+        child = await api.get_child_document(child_uids[0])
         assert child is not None
         assert child.model_dump(exclude_none=True)
 

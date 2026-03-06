@@ -27,7 +27,8 @@ class TestRealtimeListeners:
         await api.stop_all_listeners()
 
         assert len(updates) > 0
-        assert updates[-1]["timer"]["active"] is True
+        assert updates[-1].timer is not None
+        assert updates[-1].timer.active is True
 
     async def test_feed_listener(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test feeding real-time listener."""
@@ -46,7 +47,8 @@ class TestRealtimeListeners:
         await api.stop_all_listeners()
 
         assert len(updates) > 0
-        assert updates[-1]["timer"]["active"] is True
+        assert updates[-1].timer is not None
+        assert updates[-1].timer.active is True
 
     async def test_feed_listener_emits_nursing_and_solids_updates(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test feed listener emissions across nursing and solids updates."""
@@ -55,7 +57,7 @@ class TestRealtimeListeners:
         def callback(data: Any) -> None:
             updates.append(data)
 
-        curated = await api.get_solids_curated_list()
+        curated = await api.list_solids_curated_foods()
         assert curated
 
         await api.setup_feed_listener(child_uid, callback)
@@ -89,13 +91,13 @@ class TestRealtimeListeners:
 
         emitted_summary: list[dict[str, Any]] = []
         for update in updates:
-            timer = update.get("timer") if isinstance(update, dict) else None
-            prefs = update.get("prefs") if isinstance(update, dict) else None
+            timer = getattr(update, "timer", None)
+            prefs = getattr(update, "prefs", None)
 
-            timer_active = bool(timer.get("active")) if isinstance(timer, dict) else False
-            active_side = timer.get("activeSide") if isinstance(timer, dict) else None
-            has_last_nursing = isinstance(prefs, dict) and isinstance(prefs.get("lastNursing"), dict)
-            has_last_solid = isinstance(prefs, dict) and isinstance(prefs.get("lastSolid"), dict)
+            timer_active = bool(getattr(timer, "active", False)) if timer is not None else False
+            active_side = getattr(timer, "activeSide", None) if timer is not None else None
+            has_last_nursing = bool(getattr(prefs, "lastNursing", None)) if prefs is not None else False
+            has_last_solid = bool(getattr(prefs, "lastSolid", None)) if prefs is not None else False
 
             saw_active_nursing = saw_active_nursing or timer_active
             saw_last_nursing = saw_last_nursing or has_last_nursing
@@ -130,7 +132,7 @@ class TestRealtimeListeners:
 
         initial_count = len(updates)
 
-        await api.refresh_auth_token()
+        await api.refresh_session_token()
         await asyncio.sleep(2)
 
         await api.start_sleep(child_uid)
@@ -158,8 +160,8 @@ class TestRealtimeListeners:
 
         assert len(updates) > 0
         last_update = updates[-1]
-        assert "prefs" in last_update
-        assert "lastGrowthEntry" in last_update.get("prefs", {})
+        assert last_update.prefs is not None
+        assert last_update.prefs.lastGrowthEntry is not None
 
     async def test_diaper_listener(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test diaper real-time listener."""
@@ -178,5 +180,5 @@ class TestRealtimeListeners:
 
         assert len(updates) > 0
         last_update = updates[-1]
-        assert "prefs" in last_update
-        assert "lastDiaper" in last_update.get("prefs", {})
+        assert last_update.prefs is not None
+        assert last_update.prefs.lastDiaper is not None
