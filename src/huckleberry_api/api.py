@@ -219,7 +219,7 @@ class HuckleberryAPI:
         for key, (listener_type, child_uid, callback) in callbacks_copy.items():
             try:
                 if listener_type == "sleep":
-                    await self.setup_realtime_listener(child_uid, callback)
+                    await self.setup_sleep_listener(child_uid, callback)
                 elif listener_type == "feed":
                     await self.setup_feed_listener(child_uid, callback)
                 elif listener_type == "health":
@@ -1239,9 +1239,7 @@ class HuckleberryAPI:
 
         _LOGGER.info("Real-time %s listener active for child %s", collection_name, child_uid)
 
-    async def setup_realtime_listener(
-        self, child_uid: str, callback: Callable[[FirebaseSleepDocumentData], None]
-    ) -> None:
+    async def setup_sleep_listener(self, child_uid: str, callback: Callable[[FirebaseSleepDocumentData], None]) -> None:
         """Set up real-time listener for sleep document changes."""
         await self._setup_listener("sleep", child_uid, callback)
 

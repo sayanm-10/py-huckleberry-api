@@ -17,7 +17,7 @@ class TestRealtimeListeners:
         def callback(data: Any) -> None:
             updates.append(data)
 
-        await api.setup_realtime_listener(child_uid, callback)
+        await api.setup_sleep_listener(child_uid, callback)
         await asyncio.sleep(2)
 
         await api.start_sleep(child_uid)
@@ -125,7 +125,7 @@ class TestRealtimeListeners:
         def callback(data: Any) -> None:
             updates.append(data)
 
-        await api.setup_realtime_listener(child_uid, callback)
+        await api.setup_sleep_listener(child_uid, callback)
         await asyncio.sleep(2)
 
         initial_count = len(updates)
