@@ -43,6 +43,7 @@ from .firebase_types import (
     FirebaseLastBottleData,
     FirebaseLastDiaperData,
     FirebaseLastNursingData,
+    FirebaseLastPottyData,
     FirebaseLastSideData,
     FirebaseLastSleepData,
     FirebaseLastSolidData,
@@ -59,6 +60,7 @@ from .firebase_types import (
     HealthDataEntry,
     PooColor,
     PooConsistency,
+    PottyResult,
     SolidsFoodEntry,
     SolidsReaction,
     VolumeUnits,
@@ -77,6 +79,8 @@ TDocumentData = TypeVar(
     FirebaseHealthDocumentData,
     FirebaseDiaperDocumentData,
 )
+
+TDiaperOrPottySummaryData = TypeVar("TDiaperOrPottySummaryData", FirebaseLastDiaperData, FirebaseLastPottyData)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -1235,6 +1239,112 @@ class HuckleberryAPI:
         self._listener_callbacks.clear()
         self._listener_client = None
 
+    async def _log_diaper_or_potty_event(
+        self,
+        child_uid: str,
+        mode: DiaperMode,
+        *,
+        pref_field: Literal["lastDiaper", "lastPotty"],
+        pee_amount: Literal["little", "medium", "big"] | None = None,
+        poo_amount: Literal["little", "medium", "big"] | None = None,
+        color: PooColor | None = None,
+        consistency: PooConsistency | None = None,
+        diaper_rash: bool = False,
+        notes: str | None = None,
+        is_potty: bool = False,
+        how_it_happened: PottyResult | None = None,
+    ) -> None:
+        """Write a diaper-collection diaper or potty event and update the matching prefs summary."""
+        event_kind = "potty" if is_potty else "diaper"
+        _LOGGER.info("Logging %s event for child %s: mode=%s", event_kind, child_uid, mode)
+
+        client = await self._get_firestore_client()
+        diaper_ref = client.collection("diaper").document(child_uid)
+
+        current_time = time.time()
+        current_offset = await self._get_timezone_offset_minutes()
+
+        # Create interval ID (timestamp in ms + random suffix)
+        interval_timestamp_ms = int(current_time * 1000)
+        interval_id = f"{interval_timestamp_ms}-{uuid.uuid4().hex[:20]}"
+
+        # Build interval data (matching app behavior - minimal fields by default)
+        interval_data = FirebaseDiaperData(
+            start=current_time,
+            lastUpdated=current_time,
+            mode=mode,
+            offset=current_offset,
+        )
+
+        # Add quantity field if amounts are specified
+        # App uses: 0.0 = "little", 50.0 = "medium", 100.0 = "big"
+        # Other values are treated as no quantity indicator
+        amount_map = {"little": 0.0, "medium": 50.0, "big": 100.0}
+        quantity: dict[str, float] = {}
+        if pee_amount and pee_amount in amount_map:
+            quantity["pee"] = amount_map[pee_amount]
+        if poo_amount and poo_amount in amount_map:
+            quantity["poo"] = amount_map[poo_amount]
+        if quantity:
+            interval_data.quantity = FirebaseDiaperQuantity(**quantity)
+
+        # Add optional fields if provided
+        if color:
+            interval_data.color = color
+        if consistency:
+            interval_data.consistency = consistency
+        if diaper_rash:
+            interval_data.diaperRash = True
+        if notes:
+            interval_data.notes = notes
+        if is_potty:
+            interval_data.isPotty = True
+        if how_it_happened:
+            interval_data.howItHappened = how_it_happened
+
+        # Create interval document in subcollection
+        try:
+            await diaper_ref.collection("intervals").document(interval_id).set(to_firebase_dict(interval_data))
+            _LOGGER.info("Created %s interval: %s", event_kind, interval_id)
+        except GoogleAPICallError as err:
+            _LOGGER.error("Failed to create %s interval: %s", event_kind, err)
+            raise
+
+        prefs_entry: TDiaperOrPottySummaryData
+        if pref_field == "lastDiaper":
+            prefs_entry = cast(
+                TDiaperOrPottySummaryData,
+                FirebaseLastDiaperData(
+                    start=current_time,
+                    mode=mode,
+                    offset=current_offset,
+                ),
+            )
+        else:
+            prefs_entry = cast(
+                TDiaperOrPottySummaryData,
+                FirebaseLastPottyData(
+                    start=current_time,
+                    mode=mode,
+                    offset=current_offset,
+                ),
+            )
+
+        try:
+            await diaper_ref.update(
+                {
+                    f"prefs.{pref_field}": to_firebase_dict(prefs_entry),
+                    "prefs.timestamp": {"seconds": current_time},
+                    "prefs.local_timestamp": current_time,
+                }
+            )
+            _LOGGER.info("Updated %s prefs", pref_field)
+        except GoogleAPICallError as err:
+            _LOGGER.error("Failed to update %s prefs: %s", pref_field, err)
+            raise
+
+        _LOGGER.info("%s event logged successfully", event_kind.capitalize())
+
     async def log_diaper(
         self,
         child_uid: str,
@@ -1259,75 +1369,53 @@ class HuckleberryAPI:
             diaper_rash: Whether baby has diaper rash
             notes: Optional notes about this diaper change
         """
-        _LOGGER.info("Logging diaper change for child %s: mode=%s", child_uid, mode)
-
-        client = await self._get_firestore_client()
-        diaper_ref = client.collection("diaper").document(child_uid)
-
-        current_time = time.time()
-
-        # Create interval ID (timestamp in ms + random suffix)
-        interval_timestamp_ms = int(current_time * 1000)
-        interval_id = f"{interval_timestamp_ms}-{uuid.uuid4().hex[:20]}"
-
-        # Build interval data (matching app behavior - minimal fields by default)
-        interval_data = FirebaseDiaperData(
-            start=current_time,
-            lastUpdated=current_time,
-            mode=mode,
-            offset=await self._get_timezone_offset_minutes(),
+        await self._log_diaper_or_potty_event(
+            child_uid,
+            mode,
+            pref_field="lastDiaper",
+            pee_amount=pee_amount,
+            poo_amount=poo_amount,
+            color=color,
+            consistency=consistency,
+            diaper_rash=diaper_rash,
+            notes=notes,
         )
 
-        # Add quantity field if amounts are specified
-        # App uses: 0.0 = "little", 50.0 = "medium", 100.0 = "big"
-        # Other values are treated as no quantity indicator
-        amount_map = {"little": 0.0, "medium": 50.0, "big": 100.0}
-        quantity: dict[str, float] = {}
-        if pee_amount and pee_amount in amount_map:
-            quantity["pee"] = amount_map[pee_amount]
-        if poo_amount and poo_amount in amount_map:
-            quantity["poo"] = amount_map[poo_amount]
-        if quantity:
-            interval_data.quantity = FirebaseDiaperQuantity(**quantity)
+    async def log_potty(
+        self,
+        child_uid: str,
+        mode: DiaperMode,
+        how_it_happened: PottyResult,
+        pee_amount: Literal["little", "medium", "big"] | None = None,
+        poo_amount: Literal["little", "medium", "big"] | None = None,
+        color: PooColor | None = None,
+        consistency: PooConsistency | None = None,
+        notes: str | None = None,
+    ) -> None:
+        """Log a potty event in the shared diaper tracker.
 
-        # Add optional fields if provided
-        if color:
-            interval_data.color = color
-        if consistency:
-            interval_data.consistency = consistency
-        if diaper_rash:
-            interval_data.diaperRash = True
-        if notes:
-            interval_data.notes = notes
-
-        # Create interval document in subcollection
-        try:
-            await diaper_ref.collection("intervals").document(interval_id).set(to_firebase_dict(interval_data))
-            _LOGGER.info("Created diaper interval: %s", interval_id)
-        except GoogleAPICallError as err:
-            _LOGGER.error("Failed to create diaper interval: %s", err)
-            raise
-
-        # Update prefs.lastDiaper
-        try:
-            last_diaper_data = FirebaseLastDiaperData(
-                start=current_time,
-                mode=mode,
-                offset=await self._get_timezone_offset_minutes(),
-            )
-            await diaper_ref.update(
-                {
-                    "prefs.lastDiaper": to_firebase_dict(last_diaper_data),
-                    "prefs.timestamp": {"seconds": current_time},
-                    "prefs.local_timestamp": current_time,
-                }
-            )
-            _LOGGER.info("Updated lastDiaper prefs")
-        except GoogleAPICallError as err:
-            _LOGGER.error("Failed to update diaper prefs: %s", err)
-            raise
-
-        _LOGGER.info("Diaper change logged successfully")
+        Args:
+            child_uid: Child unique identifier
+            mode: One of 'pee', 'poo', 'both', 'dry'
+            how_it_happened: One of 'satButDry', 'wentPotty', or 'accident'
+            pee_amount: Pee amount - 'little', 'medium', 'big', or None (no quantity)
+            poo_amount: Poo amount - 'little', 'medium', 'big', or None (no quantity)
+            color: Poo color - 'yellow', 'brown', 'black', 'green', 'red', 'gray'
+            consistency: Poo consistency - 'solid', 'loose', 'runny', 'mucousy', 'hard', 'pebbles', 'diarrhea'
+            notes: Optional notes about this potty event
+        """
+        await self._log_diaper_or_potty_event(
+            child_uid,
+            mode,
+            pref_field="lastPotty",
+            pee_amount=pee_amount,
+            poo_amount=poo_amount,
+            color=color,
+            consistency=consistency,
+            notes=notes,
+            is_potty=True,
+            how_it_happened=how_it_happened,
+        )
 
     async def log_growth(
         self,

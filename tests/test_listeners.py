@@ -182,3 +182,24 @@ class TestRealtimeListeners:
         last_update = updates[-1]
         assert last_update.prefs is not None
         assert last_update.prefs.lastDiaper is not None
+
+    async def test_diaper_listener_emits_potty_updates(self, api: HuckleberryAPI, child_uid: str) -> None:
+        """Test diaper listener also emits potty updates from the shared document."""
+        updates: list[Any] = []
+
+        def callback(data: Any) -> None:
+            updates.append(data)
+
+        await api.setup_diaper_listener(child_uid, callback)
+        await asyncio.sleep(2)
+
+        await api.log_potty(child_uid, mode="pee", how_it_happened="accident", pee_amount="little")
+        await asyncio.sleep(2)
+
+        await api.stop_all_listeners()
+
+        assert len(updates) > 0
+        last_update = updates[-1]
+        assert last_update.prefs is not None
+        assert last_update.prefs.lastPotty is not None
+        assert last_update.prefs.lastPotty.mode == "pee"
