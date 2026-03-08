@@ -1,1 +1,0 @@
-Allow empty Firebase `prefs.last*` summary maps to validate after a child's sleep, feeding, or diaper history has been cleared.
