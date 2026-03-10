@@ -163,6 +163,39 @@ class TestRealtimeListeners:
         assert last_update.prefs is not None
         assert last_update.prefs.lastGrowthEntry is not None
 
+    async def test_health_listener_imperial_growth(self, api: HuckleberryAPI, child_uid: str) -> None:
+        """Test health listener emits imperial growth updates."""
+        updates: list[Any] = []
+
+        def callback(data: Any) -> None:
+            updates.append(data)
+
+        await api.setup_health_listener(child_uid, callback)
+        await asyncio.sleep(2)
+
+        await api.log_growth(child_uid, weight=11.5, head=13.8, units="imperial")
+        await asyncio.sleep(2)
+
+        await api.stop_all_listeners()
+
+        assert len(updates) > 0
+
+        growth_updates = [
+            update.prefs.lastGrowthEntry
+            for update in updates
+            if getattr(update, "prefs", None) is not None and getattr(update.prefs, "lastGrowthEntry", None) is not None
+        ]
+
+        assert growth_updates
+        last_growth = growth_updates[-1]
+        assert last_growth.id_ is not None
+        assert last_growth.weight == 11.5
+        assert last_growth.weightUnits == "lbs.oz"
+        assert last_growth.height is None
+        assert last_growth.heightUnits is None
+        assert last_growth.head == 13.8
+        assert last_growth.headUnits == "hin"
+
     async def test_diaper_listener(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test diaper real-time listener."""
         updates: list[Any] = []
