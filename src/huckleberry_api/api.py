@@ -1443,6 +1443,7 @@ class HuckleberryAPI:
 
         # Build growth entry matching Huckleberry app structure
         growth_entry = FirebaseGrowthData(
+            id_=interval_id,
             type="health",
             mode="growth",
             start=current_time,
@@ -1466,10 +1467,10 @@ class HuckleberryAPI:
         else:  # imperial
             if weight is not None:
                 growth_entry.weight = float(weight)
-                growth_entry.weightUnits = "lbs"
+                growth_entry.weightUnits = "lbs.oz"
             if height is not None:
                 growth_entry.height = float(height)
-                growth_entry.heightUnits = "in"
+                growth_entry.heightUnits = "ft.in"
             if head is not None:
                 growth_entry.head = float(head)
                 growth_entry.headUnits = "hin"

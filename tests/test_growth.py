@@ -21,8 +21,8 @@ class TestGrowthTracking:
         assert "lastGrowthEntry" in data.get("prefs", {})
 
     async def test_log_growth_imperial(self, api: HuckleberryAPI, child_uid: str) -> None:
-        """Test logging growth measurement in imperial units."""
-        await api.log_growth(child_uid, weight=11.5, height=20.5, head=13.8, units="imperial")
+        """Test logging supported imperial growth measurements."""
+        await api.log_growth(child_uid, weight=11.5, head=13.8, units="imperial")
         await asyncio.sleep(1)
 
         db = await api._get_firestore_client()
@@ -30,6 +30,13 @@ class TestGrowthTracking:
         data = health_doc.to_dict()
         assert data is not None
         assert "lastGrowthEntry" in data.get("prefs", {})
+        last_growth = data["prefs"]["lastGrowthEntry"]
+        assert last_growth["weight"] == 11.5
+        assert last_growth["weightUnits"] == "lbs.oz"
+        assert last_growth["head"] == 13.8
+        assert last_growth["headUnits"] == "hin"
+        assert "height" not in last_growth
+        assert "heightUnits" not in last_growth
 
     async def test_get_latest_growth(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test retrieving latest growth data."""
@@ -39,8 +46,8 @@ class TestGrowthTracking:
 
         assert growth_data.mode == "growth"
         if growth_data.weightUnits is not None:
-            assert growth_data.weightUnits in ("kg", "lbs")
+            assert growth_data.weightUnits in ("kg", "lbs.oz")
         if growth_data.heightUnits is not None:
-            assert growth_data.heightUnits in ("cm", "in")
+            assert growth_data.heightUnits in ("cm", "ft.in")
         if growth_data.headUnits is not None:
             assert growth_data.headUnits in ("hcm", "hin")
