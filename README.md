@@ -177,7 +177,7 @@ Huckleberry's Firebase Security Rules block non-SDK requests. Direct REST API ca
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.14+
 - `google-cloud-firestore>=2.11.0`
 - `aiohttp>=3.10.0`
 - `pydantic>=2.10.0`
@@ -207,7 +207,7 @@ uv run ruff check .
 uv run ruff format .
 
 # Type check
-uv run ty check --python-version 3.11 --ignore unknown-argument
+uv run ty check --python-version 3.14 --ignore unknown-argument
 
 # Add release notes about your feature
 uv run towncrier create

@@ -20,7 +20,7 @@
       "label": "Ty: Check",
       "type": "shell",
       "command": "uv",
-      "args": ["run", "ty", "check", "--python-version", "3.11", "--ignore", "unknown-argument"],
+      "args": ["run", "ty", "check", "--python-version", "3.14", "--ignore", "unknown-argument"],
       "group": "test",
       "problemMatcher": []
     },
