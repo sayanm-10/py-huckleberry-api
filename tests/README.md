@@ -89,7 +89,7 @@ Integration tests run automatically on:
 
 GitHub Actions workflow: `.github/workflows/integration-tests.yml`
 
-Tests run on Python 3.9, 3.10, 3.11, and 3.12.
+Tests run on Python 3.14.
 
 ## Important Notes
 

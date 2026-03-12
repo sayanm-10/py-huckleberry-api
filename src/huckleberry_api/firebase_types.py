@@ -682,7 +682,7 @@ class FirebaseGrowthData(StrictModel):
     type: Literal["health"] | None = None
     mode: Literal["growth"]
     start: Number
-    lastUpdated: Number
+    lastUpdated: Number | None = None
     offset: Number
     isNight: bool | None = None
     multientry_key: str | None = None
@@ -703,7 +703,7 @@ class FirebaseMedicationData(StrictModel):
     type: Literal["health"] | None = None
     mode: Literal["medication"]
     start: Number
-    lastUpdated: Number
+    lastUpdated: Number | None = None
     offset: Number
     medication_id: str | None = None
     medication_name: str | None = None
@@ -722,7 +722,7 @@ class FirebaseTemperatureData(StrictModel):
     type: Literal["health"] | None = None
     mode: Literal["temperature"]
     start: Number
-    lastUpdated: Number
+    lastUpdated: Number | None = None
     offset: Number
     amount: Number | None = None
     units: TemperatureUnits | None = None
