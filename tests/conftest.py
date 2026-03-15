@@ -32,9 +32,9 @@ _AUTH_CACHE_LOCK = asyncio.Lock()
 async def _load_auth_snapshot(api_instance: HuckleberryAPI, cache_key: tuple[str, str, str]) -> AuthSnapshot:
     """Authenticate once per credential set and reuse the resulting tokens across tests."""
     async with _AUTH_CACHE_LOCK:
-        snapshot = _AUTH_CACHE.get(cache_key)
-        if snapshot and snapshot["token_expires_at"] > time.time() + 300:
-            return snapshot
+        cached_snapshot = _AUTH_CACHE.get(cache_key)
+        if cached_snapshot and cached_snapshot["token_expires_at"] > time.time() + 300:
+            return cached_snapshot
 
         await api_instance.authenticate()
         assert api_instance.id_token is not None
@@ -42,14 +42,14 @@ async def _load_auth_snapshot(api_instance: HuckleberryAPI, cache_key: tuple[str
         assert api_instance.user_uid is not None
         assert api_instance.token_expires_at is not None
 
-        snapshot = {
+        new_snapshot: AuthSnapshot = {
             "id_token": api_instance.id_token,
             "refresh_token": api_instance.refresh_token,
             "user_uid": api_instance.user_uid,
             "token_expires_at": api_instance.token_expires_at,
         }
-        _AUTH_CACHE[cache_key] = snapshot
-        return snapshot
+        _AUTH_CACHE[cache_key] = new_snapshot
+        return new_snapshot
 
 
 @pytest_asyncio.fixture
@@ -88,12 +88,13 @@ async def api(websession: aiohttp.ClientSession) -> AsyncIterator[HuckleberryAPI
         and api_instance.user_uid is not None
         and api_instance.token_expires_at is not None
     ):
-        _AUTH_CACHE[cache_key] = {
+        updated_snapshot: AuthSnapshot = {
             "id_token": api_instance.id_token,
             "refresh_token": api_instance.refresh_token,
             "user_uid": api_instance.user_uid,
             "token_expires_at": api_instance.token_expires_at,
         }
+        _AUTH_CACHE[cache_key] = updated_snapshot
 
 
 @pytest_asyncio.fixture
