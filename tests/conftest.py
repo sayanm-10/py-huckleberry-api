@@ -29,9 +29,7 @@ _AUTH_CACHE: dict[tuple[str, str, str], AuthSnapshot] = {}
 _AUTH_CACHE_LOCK = asyncio.Lock()
 
 
-async def _load_auth_snapshot(
-    api_instance: HuckleberryAPI, cache_key: tuple[str, str, str]
-) -> AuthSnapshot:
+async def _load_auth_snapshot(api_instance: HuckleberryAPI, cache_key: tuple[str, str, str]) -> AuthSnapshot:
     """Authenticate once per credential set and reuse the resulting tokens across tests."""
     async with _AUTH_CACHE_LOCK:
         snapshot = _AUTH_CACHE.get(cache_key)
