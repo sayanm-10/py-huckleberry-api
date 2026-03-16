@@ -847,7 +847,7 @@ class FirebasePumpMultiContainer(StrictModel):
 class FirebaseLastActivityData(StrictModel):
     """activities/{child_uid}.prefs.last* structure.
 
-    Live Firebase stores one summary field per activity mode under `prefs`, for
+    One summary field per activity mode under `prefs`, for
     example `lastBath` and `lastStoryTime`.
     """
 
@@ -858,12 +858,7 @@ class FirebaseLastActivityData(StrictModel):
 
 
 class FirebaseActivityPrefs(StrictModel):
-    """activities/{child_uid}.prefs structure.
-
-    Verified live summary fields: `lastBath`, `lastBrushTeeth`, `lastIndoorPlay`,
-    `lastOutdoorPlay`, `lastScreenTime`, `lastSkinToSkin`, `lastStoryTime`, and
-    `lastTummyTime`.
-    """
+    """activities/{child_uid}.prefs structure."""
 
     lastBath: FirebaseLastActivityData | None = None
     lastBrushTeeth: FirebaseLastActivityData | None = None
@@ -921,7 +916,6 @@ class FirebaseActivityIntervalData(StrictModel):
     """activities/{child_uid}/intervals row.
 
     Activities tracker follows the common `intervals` subcollection convention.
-    Live payloads can also include free-form `notes`.
     """
 
     mode: ActivityMode
