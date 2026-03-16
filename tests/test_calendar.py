@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from huckleberry_api import HuckleberryAPI
 from huckleberry_api.firebase_types import (
+    FirebaseActivityIntervalData,
     FirebaseBottleFeedIntervalData,
     FirebaseBreastFeedIntervalData,
     FirebaseGrowthData,
@@ -140,6 +141,40 @@ class TestCalendarIntervals:
             assert isinstance(interval.start, (int, float))
             assert interval.entryMode in ("leftright", "total")
             assert interval.units in ("ml", "oz")
+
+    async def test_list_activity_intervals(self, api: HuckleberryAPI, child_uid: str) -> None:
+        """Test fetching activity intervals for a date range."""
+        await api.log_activity(
+            child_uid,
+            mode="storyTime",
+            start_time=datetime.now(timezone.utc),
+            duration=600,
+            notes="calendar activity test",
+        )
+        await asyncio.sleep(1)
+
+        now = datetime.now(timezone.utc)
+        start_ts = int(now.timestamp()) - 3600
+        end_ts = int(now.timestamp()) + 60
+
+        intervals = await api.list_activity_intervals(child_uid, start_ts, end_ts)
+
+        assert isinstance(intervals, list)
+        assert len(intervals) >= 1
+
+        for interval in intervals:
+            assert isinstance(interval, FirebaseActivityIntervalData)
+            assert isinstance(interval.start, (int, float))
+            assert interval.mode in (
+                "bath",
+                "tummyTime",
+                "storyTime",
+                "screenTime",
+                "skinToSkin",
+                "outdoorPlay",
+                "indoorPlay",
+                "brushTeeth",
+            )
 
     async def test_date_range_filtering(self, api: HuckleberryAPI, child_uid: str) -> None:
         """Test that date range filtering works correctly."""

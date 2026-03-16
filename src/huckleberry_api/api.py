@@ -23,9 +23,13 @@ from pydantic import TypeAdapter, ValidationError
 
 from .const import AUTH_URL, FIREBASE_API_KEY, REFRESH_URL
 from .firebase_types import (
+    ActivityMode,
     BottleType,
     DiaperMode,
     FeedSide,
+    FirebaseActivityDocumentData,
+    FirebaseActivityIntervalData,
+    FirebaseActivityMultiContainer,
     FirebaseBottleFeedIntervalData,
     FirebaseChildDocument,
     FirebaseCuratedFoodDocument,
@@ -41,6 +45,7 @@ from .firebase_types import (
     FirebaseGrowthData,
     FirebaseHealthDocumentData,
     FirebaseHealthMultiContainer,
+    FirebaseLastActivityData,
     FirebaseLastBottleData,
     FirebaseLastDiaperData,
     FirebaseLastNursingData,
@@ -84,6 +89,7 @@ TDocumentData = TypeVar(
     FirebaseFeedDocumentData,
     FirebaseHealthDocumentData,
     FirebaseDiaperDocumentData,
+    FirebaseActivityDocumentData,
     FirebasePumpDocumentData,
 )
 
@@ -91,6 +97,16 @@ _LOGGER = logging.getLogger(__name__)
 
 _FEED_INTERVAL_ADAPTER = TypeAdapter(FirebaseFeedIntervalData)
 _HEALTH_ENTRY_ADAPTER = TypeAdapter(HealthDataEntry)
+_ACTIVITY_LAST_FIELD_BY_MODE: dict[ActivityMode, str] = {
+    "bath": "lastBath",
+    "brushTeeth": "lastBrushTeeth",
+    "indoorPlay": "lastIndoorPlay",
+    "outdoorPlay": "lastOutdoorPlay",
+    "screenTime": "lastScreenTime",
+    "skinToSkin": "lastSkinToSkin",
+    "storyTime": "lastStoryTime",
+    "tummyTime": "lastTummyTime",
+}
 
 
 async def _raise_for_status_with_details(response: aiohttp.ClientResponse, operation: str) -> None:
@@ -260,6 +276,8 @@ class HuckleberryAPI:
                     await self.setup_health_listener(child_uid, callback)
                 elif listener_type == "diaper":
                     await self.setup_diaper_listener(child_uid, callback)
+                elif listener_type == "activities":
+                    await self.setup_activity_listener(child_uid, callback)
                 elif listener_type == "pump":
                     await self.setup_pump_listener(child_uid, callback)
                 _LOGGER.debug("Recreated %s listener for child %s", listener_type, child_uid)
@@ -1181,7 +1199,7 @@ class HuckleberryAPI:
 
     async def _setup_listener(
         self,
-        collection_name: Literal["sleep", "feed", "health", "diaper", "pump"],
+        collection_name: Literal["sleep", "feed", "health", "diaper", "activities", "pump"],
         child_uid: str,
         callback: Callable[[TDocumentData], None],
     ) -> None:
@@ -1220,6 +1238,8 @@ class HuckleberryAPI:
                         validated = FirebaseFeedDocumentData.model_validate(payload)
                     elif collection_name == "health":
                         validated = FirebaseHealthDocumentData.model_validate(payload)
+                    elif collection_name == "activities":
+                        validated = FirebaseActivityDocumentData.model_validate(payload)
                     elif collection_name == "pump":
                         validated = FirebasePumpDocumentData.model_validate(payload)
                     else:
@@ -1254,6 +1274,12 @@ class HuckleberryAPI:
     ) -> None:
         """Set up real-time listener for diaper document changes."""
         await self._setup_listener("diaper", child_uid, callback)
+
+    async def setup_activity_listener(
+        self, child_uid: str, callback: Callable[[FirebaseActivityDocumentData], None]
+    ) -> None:
+        """Set up real-time listener for activities document changes."""
+        await self._setup_listener("activities", child_uid, callback)
 
     async def setup_pump_listener(self, child_uid: str, callback: Callable[[FirebasePumpDocumentData], None]) -> None:
         """Set up real-time listener for pump document changes."""
@@ -1640,6 +1666,80 @@ class HuckleberryAPI:
             should_update_last_pump,
         )
 
+    async def log_activity(
+        self,
+        child_uid: str,
+        *,
+        mode: ActivityMode,
+        start_time: datetime,
+        duration: float | int | None = None,
+        notes: str | None = None,
+    ) -> None:
+        """Log an activity entry.
+
+        Args:
+            child_uid: Child unique identifier.
+            mode: Activity mode.
+            start_time: Activity start in datetime.
+            duration: Optional activity duration in seconds.
+            notes: Optional notes attached to the interval.
+        """
+        if duration is not None and float(duration) < 0:
+            raise ValueError("duration must be non-negative")
+
+        start_timestamp = start_time.timestamp()
+        current_offset = await self._get_timezone_offset_minutes()
+        current_time = time.time()
+        interval_id = f"{int(current_time * 1000)}-{uuid.uuid4().hex[:20]}"
+
+        interval = FirebaseActivityIntervalData(
+            mode=mode,
+            start=start_timestamp,
+            offset=current_offset,
+            duration=float(duration) if duration is not None else None,
+            end_offset=current_offset if duration is not None else None,
+            lastUpdated=current_time,
+            notes=notes,
+        )
+
+        last_activity = FirebaseLastActivityData(
+            start=start_timestamp,
+            offset=current_offset,
+            duration=float(duration) if duration is not None else None,
+            end_offset=current_offset if duration is not None else None,
+        )
+
+        client = await self._get_firestore_client()
+        activities_ref = client.collection("activities").document(child_uid)
+        activities_doc = await activities_ref.get()
+        await activities_ref.collection("intervals").document(interval_id).set(to_firebase_dict(interval))
+
+        activities_model = FirebaseActivityDocumentData.model_validate(activities_doc.to_dict() or {})
+        last_field_name = _ACTIVITY_LAST_FIELD_BY_MODE[mode]
+        existing_last_activity = (
+            getattr(activities_model.prefs, last_field_name, None) if activities_model.prefs else None
+        )
+        existing_start = existing_last_activity.start if existing_last_activity else None
+        should_update_last_activity = True
+        if existing_start is not None and start_timestamp < float(existing_start):
+            should_update_last_activity = False
+
+        if should_update_last_activity:
+            await activities_ref.update(
+                {
+                    f"prefs.{last_field_name}": to_firebase_dict(last_activity),
+                    "prefs.timestamp": {"seconds": current_time},
+                    "prefs.local_timestamp": current_time,
+                }
+            )
+
+        _LOGGER.info(
+            "Activity logged for child %s with mode %s (updated_last=%s)",
+            child_uid,
+            mode,
+            should_update_last_activity,
+        )
+
     async def get_latest_growth(self, child_uid: str) -> FirebaseGrowthData | None:
         """
         Get the latest growth measurements for a child.
@@ -1989,5 +2089,63 @@ class HuckleberryAPI:
 
         except (GoogleAPICallError, ValidationError) as err:
             _LOGGER.error("Error fetching pump intervals: %s", err)
+
+        return events
+
+    async def list_activity_intervals(
+        self,
+        child_uid: str,
+        start_timestamp: int,
+        end_timestamp: int,
+    ) -> list[FirebaseActivityIntervalData]:
+        """
+        Fetch activity intervals from Firestore for a date range.
+
+        Args:
+            child_uid: Child unique identifier
+            start_timestamp: Start of range (Unix timestamp in seconds)
+            end_timestamp: End of range (Unix timestamp in seconds)
+
+        Returns:
+            List of Firebase-validated activity interval entries
+        """
+        events: list[FirebaseActivityIntervalData] = []
+        client = await self._get_firestore_client()
+        activities_ref = client.collection("activities").document(child_uid)
+        intervals_ref = activities_ref.collection("intervals")
+
+        try:
+            regular_docs = (
+                intervals_ref.where(filter=firestore.FieldFilter("start", ">=", start_timestamp))
+                .where(filter=firestore.FieldFilter("start", "<", end_timestamp))
+                .order_by("start")
+                .stream()
+            )
+
+            async for doc in regular_docs:
+                data = doc.to_dict()
+                if not data or data.get("multi"):
+                    continue
+
+                entry = FirebaseActivityIntervalData.model_validate(data)
+                events.append(entry)
+
+            multi_docs = intervals_ref.where(filter=firestore.FieldFilter("multi", "==", True)).stream()
+
+            async for doc in multi_docs:
+                data = doc.to_dict()
+                if not data:
+                    continue
+
+                container = FirebaseActivityMultiContainer.model_validate(data)
+                for entry in container.data.values():
+                    entry_start = entry.start
+                    if not (start_timestamp <= entry_start < end_timestamp):
+                        continue
+
+                    events.append(entry)
+
+        except (GoogleAPICallError, ValidationError) as err:
+            _LOGGER.error("Error fetching activity intervals: %s", err)
 
         return events
