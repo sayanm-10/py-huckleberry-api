@@ -643,14 +643,16 @@ class HuckleberryAPI:
         """Log a completed sleep interval without using the live timer."""
         start_timestamp = start_time.timestamp()
         end_timestamp = end_time.timestamp()
-        if end_timestamp < start_timestamp:
+        start_sec = int(start_timestamp)
+        end_sec = int(end_timestamp)
+        if end_sec < start_sec:
             raise ValueError("end_time must be after start_time")
 
         current_time = time.time()
-        duration_sec = int(end_timestamp - start_timestamp)
+        duration_sec = end_sec - start_sec
         timezone_offset = await self._get_timezone_offset_minutes()
         sleep_interval = FirebaseSleepIntervalData(
-            start=int(start_timestamp),
+            start=start_sec,
             duration=duration_sec,
             offset=timezone_offset,
             end_offset=timezone_offset,
@@ -658,7 +660,7 @@ class HuckleberryAPI:
             lastUpdated=current_time,
         )
         last_sleep_data = FirebaseLastSleepData(
-            start=int(start_timestamp),
+            start=start_sec,
             duration=duration_sec,
             offset=timezone_offset,
         )
@@ -669,7 +671,7 @@ class HuckleberryAPI:
         sleep_model = FirebaseSleepDocumentData.model_validate(sleep_doc.to_dict() or {})
         existing_last_sleep = sleep_model.prefs.lastSleep if sleep_model.prefs else None
         existing_last_sleep_start = existing_last_sleep.start if existing_last_sleep else None
-        should_update_last_sleep = existing_last_sleep_start is None or start_timestamp >= float(
+        should_update_last_sleep = existing_last_sleep_start is None or float(start_sec) >= float(
             existing_last_sleep_start
         )
 
